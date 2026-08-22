@@ -1,33 +1,65 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-    <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-
-    <IsPackable>true</IsPackable>
-    <PackageId>Umb.ElementFinder</PackageId>
-    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
-
-    <Version>17.0.0</Version>
-    <Title>Element Finder</Title>
-    <Description>Find where Umbraco Element Types are used across your content pages, with server-side search and pagination and native Umbraco Backoffice navigation.</Description>
-    <Authors>Giriraj Digital</Authors>
-
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-
-    <AssemblyName>Umb.ElementFinder</AssemblyName>
-    <RootNamespace>Umb.ElementFinder</RootNamespace>
-    <PackageTags>umbraco-marketplace;umbraco;element-types;backoffice;developer-tools;element-finder</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PropertyGroup Label="Build">
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup>
+    <PropertyGroup Label="Package identity">
+        <PackageId>Umb.ElementFinder</PackageId>
+        <Version>17.0.0</Version>
+        <Title>Element Finder</Title>
+        <Authors>Giriraj Digital</Authors>
+        <Description>Find and track where Umbraco Element Types are used across your content pages, with a clear dashboard view of their usage and references.</Description>
+        <PackageTags>umbraco-marketplace;umbraco;element-types;backoffice;developer-tools;element-finder</PackageTags>
+        <PackageReleaseNotes>
+Initial release.
+
+- Element Finder dashboard in the Content section, listing every reusable Element Type with its total usage count.
+- Drill down to the content pages that use an Element Type, with published status and per-page usage counts.
+- Per-culture usage breakdown for multilingual sites.
+- Server-side search and pagination on both screens.
+- Go to Page opens the content item in the native Umbraco document workspace.
+- Supports Umbraco 17 and Umbraco 18.
+        </PackageReleaseNotes>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Listing metadata">
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>icon.png</PackageIcon>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Copyright>Copyright © 2026 Giriraj Digital</Copyright>
+        <PackageProjectUrl>https://github.com/Nikhilgirirajdigital/umb.elementfinder</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Nikhilgirirajdigital/umb.elementfinder</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Packing">
+        <IsPackable>true</IsPackable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <!-- Serves the backoffice bundle from /App_Plugins/ElementFinder, which is where
+             umbraco-package.json points, rather than the default /_content/Umb.ElementFinder. -->
+        <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+    </PropertyGroup>
+
+    <ItemGroup Label="Shipped in the package root">
         <None Include="README.md" Pack="true" PackagePath="\" />
+        <None Include="icon.png" Pack="true" PackagePath="\" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Dev-time files that must not ship">
+        <!-- The SDK globs these in as Content, and NuGet would then copy them into every
+             consuming project. None of them belong in the shipped package; the backoffice
+             assets under wwwroot are packed as static web assets and are unaffected. -->
+        <Content Update="Client\**" Pack="false" />
+        <Content Update="appsettings-schema.json" Pack="false" />
+        <Content Update="appsettings-schema.Umbraco.Cms.json" Pack="false" />
+        <Content Update="umbraco-package-schema.json" Pack="false" />
+        <Content Update="umbraco-marketplace.json" Pack="false" />
+    </ItemGroup>
+
+    <ItemGroup Label="The test project sits inside this project's directory">
         <Compile Remove="Tests\**" />
         <Content Remove="Tests\**" />
         <EmbeddedResource Remove="Tests\**" />
@@ -35,7 +67,7 @@
     </ItemGroup>
 
     <ItemGroup>
-    <PackageReference Include="Umbraco.Cms" Version="[17.0.0,19.0.0)" />
+        <PackageReference Include="Umbraco.Cms" Version="[17.0.0,19.0.0)" />
     </ItemGroup>
 
 </Project>

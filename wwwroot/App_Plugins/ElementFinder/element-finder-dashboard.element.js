@@ -1,12 +1,12 @@
-var g = Object.defineProperty;
-var _ = (n, e, t) => e in n ? g(n, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : n[e] = t;
-var o = (n, e, t) => _(n, typeof e != "symbol" ? e + "" : e, t);
+var m = Object.defineProperty;
+var _ = (r, e, t) => e in r ? m(r, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : r[e] = t;
+var o = (r, e, t) => _(r, typeof e != "symbol" ? e + "" : e, t);
 import { LitElement as b, css as y, html as a } from "@umbraco-cms/backoffice/external/lit";
 import { UmbElementMixin as T } from "@umbraco-cms/backoffice/element-api";
 import { UmbModalRouteRegistrationController as f } from "@umbraco-cms/backoffice/router";
 import { UMB_WORKSPACE_MODAL as v } from "@umbraco-cms/backoffice/workspace";
 import { UMB_DOCUMENT_ENTITY_TYPE as w, UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN as P } from "@umbraco-cms/backoffice/document";
-const d = "/umbraco/backoffice/elementfinder", m = 20;
+const d = "/umbraco/backoffice/elementfinder", g = 20;
 class c extends T(b) {
   constructor() {
     super(), this._view = "list", this._elementTypes = [], this._elementTypeSearchText = "", this._elementTypeFilter = "", this._elementTypePage = 1, this._elementTypeTotalPages = 1, this._selectedElementType = null, this._pages = [], this._pageSearchText = "", this._pageFilter = "", this._pagePage = 1, this._pageTotalPages = 1, this._loading = !1, this._error = null, this._elementTypeRequestId = 0, this._pageRequestId = 0, this._workspaceModalRoute = new f(this, v).onSetup(async () => ({
@@ -33,7 +33,7 @@ class c extends T(b) {
     try {
       const s = new URLSearchParams({
         page: String(e),
-        pageSize: String(m)
+        pageSize: String(g)
       });
       t && s.set("search", t);
       const l = await fetch(`${d}/elementtypes?${s.toString()}`);
@@ -59,14 +59,14 @@ class c extends T(b) {
       const l = new URLSearchParams({
         elementTypeAlias: this._selectedElementType.alias,
         page: String(e),
-        pageSize: String(m)
+        pageSize: String(g)
       });
       t && l.set("search", t);
       const u = await fetch(`${d}/pagesforelementtype?${l.toString()}`);
       if (!u.ok) throw new Error(`Request failed (${u.status})`);
-      const r = await u.json();
+      const n = await u.json();
       if (i !== this._pageRequestId) return;
-      this._pages = r.items ?? [], this._pagePage = r.page ?? e, this._pageTotalPages = r.totalPages ?? 1;
+      this._pages = n.items ?? [], this._pagePage = n.page ?? e, this._pageTotalPages = n.totalPages ?? 1;
     } catch (l) {
       i === this._pageRequestId && (this._error = `Could not load pages for ${this._selectedElementType.name}: ${l}`);
     } finally {
@@ -120,8 +120,8 @@ class c extends T(b) {
           .current=${e}
           @change=${(l) => {
       var p, h;
-      const r = Number(((p = l.detail) == null ? void 0 : p.current) ?? ((h = l.target) == null ? void 0 : h.current));
-      Number.isFinite(r) && r !== e && s(r);
+      const n = Number(((p = l.detail) == null ? void 0 : p.current) ?? ((h = l.target) == null ? void 0 : h.current));
+      Number.isFinite(n) && n !== e && s(n);
     }}
         ></uui-pagination>
       </div>
@@ -286,13 +286,13 @@ class c extends T(b) {
                               <div class="usage-count-tags">
                                 ${Object.entries(i.usageCountsByCulture ?? {}).map(
         ([s, l]) => a`
-                                  <uui-tag look="outline">
-                                    <span class="usage-count-tag-content">
-                                      <span class="usage-count-culture">${s}</span>
-                                      <span class="usage-count-value">${l}</span>
-                                    </span>
-                                  </uui-tag>
-                                `
+                                    <uui-tag look="outline">
+                                      <span class="usage-count-tag-content">
+                                        <span class="usage-count-culture">${s}</span>
+                                        <span class="usage-count-value">${l}</span>
+                                      </span>
+                                    </uui-tag>
+                                  `
       )}
                               </div>
                             </uui-table-cell>

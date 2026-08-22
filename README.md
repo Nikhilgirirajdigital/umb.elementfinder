@@ -1,7 +1,7 @@
 # Umb.ElementFinder
 
-A backoffice dashboard for **Umbraco 17 and later** that shows you where every reusable
-**Element Type** is actually used across your content, without writing a single query.
+A backoffice dashboard that shows you where every reusable **Element Type** is actually
+used across your content, without writing a single query.
 
 ## Features
 
@@ -17,16 +17,6 @@ A backoffice dashboard for **Umbraco 17 and later** that shows you where every r
 -   Usage index stays current automatically when content is saved.
 -   Native Umbraco UUI components, icons, loaders, and theme-aware styling.
 -   Secure API protected by Umbraco backoffice authentication.
-
-## Dashboard Columns
-
-| Column | Screen | Description |
-| --- | --- | --- |
-| Element Type | Element Types | Element Type name, alias, and its own icon |
-| Total Usage Count | Element Types | Total occurrences across all content |
-| Page | Used Pages | Content page name and document type icon |
-| Status | Used Pages | Whether the page currently has a published version |
-| Usage Count | Used Pages | Occurrences on that page, broken down by culture |
 
 ## Requirements
 
@@ -95,51 +85,6 @@ how many pages use it:
 -   **Per culture** -- occurrences grouped by language ISO code on
     culture-variant properties.
 -   **Invariant** -- occurrences on properties that do not vary by culture.
-
-## API
-
-The package provides read-only APIs under:
-
-``` text
-/umbraco/backoffice/elementfinder
-```
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/ElementTypes` | Paged, searchable list of Element Types with usage totals |
-| `GET` | `/PagesForElementType` | Paged, searchable list of pages using a given Element Type |
-
-Both endpoints accept `page`, `pageSize`, and `search` query parameters.
-`pageSize` defaults to `20` and is capped at `100`.
-`PagesForElementType` also requires an `elementTypeAlias`.
-
-## Security
-
-Access to Element Finder is protected by:
-
--   Umbraco backoffice authentication.
--   The `BackOfficeAccess` authorization policy.
--   The backoffice authentication scheme, so front-end or member cookies
-    cannot reach the API.
-
-Only authenticated backoffice users can open the dashboard or call its APIs.
-
-## Technical Notes
-
-Umbraco stores Block List, Block Grid, and Nested Content values as JSON inside
-`umbracoPropertyData`. Scanning those values on every request does not scale, so
-Element Finder maintains its own **usage index**.
-
-A package migration creates two tables, `umbElementFinderUsage` and
-`umbElementFinderState`. The index is built once on first startup after
-installation, and is then kept up to date incrementally by a `ContentSaved`
-notification handler, so no background scanning or scheduled job is required.
-
-Element Type browsing reads from Umbraco's live `IContentTypeService`, so newly
-created Element Types appear immediately. Used-page lookups are resolved with a
-single server-side paged SQL query against the index, which keeps the dashboard
-responsive on large content trees. Pages in the recycle bin are excluded from
-all results.
 
 ## Support
 

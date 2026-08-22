@@ -31,7 +31,8 @@ interface PagedResult<T> {
   totalPages?: number;
 }
 
-type WorkspaceModalPathBuilder = (options?: Record<string, unknown>) => string | undefined;
+// Must match Umbraco's UmbModalRouteBuilder signature, or observeRouteBuilder rejects it.
+type WorkspaceModalPathBuilder = (params: { [key: string]: string | number } | null) => string;
 
 
 /**

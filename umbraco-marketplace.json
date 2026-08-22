@@ -7,10 +7,12 @@
     "ImageUrl": "https://www.girirajdigital.com/media/gdlogo.png"
   },
   "Category": "Developer Tools",
-  "Description": "A backoffice dashboard for Umbraco 17 and later that shows you where every reusable Element Type is actually used across your content, with usage counts, published status, and server-side search.",
+  "Description": "Find and track where Umbraco Element Types are used across your content pages, with a clear dashboard view of their usage and references.",
   "LicenseTypes": [
     "Free"
   ],
+  "DocumentationUrl": "https://github.com/Nikhilgirirajdigital/umb.elementfinder#readme",
+  "IssueTrackerUrl": "https://github.com/Nikhilgirirajdigital/umb.elementfinder/issues",
   "Screenshots": [
     {
       "ImageUrl": "https://raw.githubusercontent.com/Nikhilgirirajdigital/umb.elementfinder/main/screenshots/element-finder-dashboard.png",
