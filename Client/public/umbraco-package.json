@@ -1,0 +1,25 @@
+{
+    "$schema": "../../umbraco-package-schema.json",
+    "name": "Element Finder",
+    "version": "17.0.0",
+    "extensions": [
+        {
+            "type": "dashboard",
+            "alias": "ElementFinder.Dashboard",
+            "name": "Element Finder Dashboard",
+            "js": "/App_Plugins/ElementFinder/element-finder-dashboard.element.js",
+            "elementName": "element-finder-dashboard",
+            "weight": 9,
+            "meta": {
+                "label": "Element Finder",
+                "pathname": "element-finder"
+            },
+            "conditions": [
+                {
+                    "alias": "Umb.Condition.SectionAlias",
+                    "match": "Umb.Section.Content"
+                }
+            ]
+        }
+    ]
+}

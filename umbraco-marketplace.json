@@ -1,0 +1,32 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "AuthorDetails": {
+    "Name": "Giriraj Digital",
+    "Description": "Your trusted Umbraco Gold Partner, elevating digital experiences with excellence in Microsoft .NET solutions.",
+    "Url": "https://www.girirajdigital.com/",
+    "ImageUrl": "https://www.girirajdigital.com/media/gdlogo.png"
+  },
+  "Category": "Developer Tools",
+  "Description": "A backoffice dashboard for Umbraco 17 and later that shows you where every reusable Element Type is actually used across your content, with usage counts, published status, and server-side search.",
+  "LicenseTypes": [
+    "Free"
+  ],
+  "Screenshots": [
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/Nikhilgirirajdigital/umb.elementfinder/main/screenshots/element-finder-dashboard.png",
+      "Caption": "Every reusable Element Type with its alias and total usage count"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/Nikhilgirirajdigital/umb.elementfinder/main/screenshots/element-finder-usage-pages.png",
+      "Caption": "Content pages using an Element Type, with published status and per-culture usage counts"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/Nikhilgirirajdigital/umb.elementfinder/main/screenshots/element-finder-go-to-page.png",
+      "Caption": "Go to Page opens the content item in the native Umbraco workspace"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/Nikhilgirirajdigital/umb.elementfinder/main/screenshots/element-finder-pagination.png",
+      "Caption": "Server-side search and pagination keeps large projects responsive"
+    }
+  ]
+}

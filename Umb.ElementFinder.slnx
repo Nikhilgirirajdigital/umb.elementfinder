@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Umb.ElementFinder.csproj" />
+  <Project Path="Tests/Umb.ElementFinder.Tests/Umb.ElementFinder.Tests.csproj" />
+</Solution>

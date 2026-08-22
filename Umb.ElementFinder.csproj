@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Umb.ElementFinder</PackageId>
+    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+
+    <Version>17.0.0</Version>
+    <Title>Element Finder</Title>
+    <Description>Find where Umbraco Element Types are used across your content pages, with server-side search and pagination and native Umbraco Backoffice navigation.</Description>
+    <Authors>Giriraj Digital</Authors>
+
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <AssemblyName>Umb.ElementFinder</AssemblyName>
+    <RootNamespace>Umb.ElementFinder</RootNamespace>
+    <PackageTags>umbraco-marketplace;umbraco;element-types;backoffice;developer-tools;element-finder</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Tests\**" />
+        <Content Remove="Tests\**" />
+        <EmbeddedResource Remove="Tests\**" />
+        <None Remove="Tests\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+    <PackageReference Include="Umbraco.Cms" Version="[17.0.0,19.0.0)" />
+    </ItemGroup>
+
+</Project>
