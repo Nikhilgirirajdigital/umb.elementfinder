@@ -12,7 +12,7 @@ public sealed class SourceStructureTests
         using var document = JsonDocument.Parse(File.ReadAllText(path));
 
         Assert.Equal("Element Finder", document.RootElement.GetProperty("name").GetString());
-        Assert.Equal("17.1.0", document.RootElement.GetProperty("version").GetString());
+        Assert.Equal("18.0.0", document.RootElement.GetProperty("version").GetString());
     }
 
     private static string FindRepositoryRoot()
