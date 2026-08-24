@@ -8,20 +8,19 @@
 
     <PropertyGroup Label="Package identity">
         <PackageId>Umb.ElementFinder</PackageId>
-        <Version>17.0.0</Version>
+        <Version>17.1.0</Version>
         <Title>Element Finder</Title>
         <Authors>Giriraj Digital</Authors>
         <Description>Find and track where Umbraco Element Types are used across your content pages, with a clear dashboard view of their usage and references.</Description>
         <PackageTags>umbraco-marketplace;umbraco;element-types;backoffice;developer-tools;element-finder</PackageTags>
         <PackageReleaseNotes>
-Initial release.
+Removes the custom database tables. No migration is required, and the startup crash in 17.0.0 is gone for good.
 
-- Element Finder dashboard in the Content section, listing every reusable Element Type with its total usage count.
-- Drill down to the content pages that use an Element Type, with published status and per-page usage counts.
-- Per-culture usage breakdown for multilingual sites.
-- Server-side search and pagination on both screens.
-- Go to Page opens the content item in the native Umbraco document workspace.
-- Supports Umbraco 17 and Umbraco 18.
+- Element Type usage is now held in memory and built on first use, so a site where nobody opens the dashboard does no work at all.
+- Removed the umbElementFinderUsage and umbElementFinderState tables and the package migration that created them. Installing no longer depends on unattended package migrations being enabled.
+- Fixed: sites no longer fail to start with "Invalid object name 'umbElementFinderState'".
+- Usage counts now refresh correctly after content is trashed, restored, moved, or deleted.
+- Upgrading from 17.0.x: the two old tables are left in place and can safely be dropped by hand.
         </PackageReleaseNotes>
     </PropertyGroup>
 
