@@ -288,7 +288,7 @@ class c extends T(b) {
         ([s, l]) => a`
                                     <uui-tag look="outline">
                                       <span class="usage-count-tag-content">
-                                        <span class="usage-count-culture">${s}</span>
+                                        <span class="usage-count-culture" title=${s}>${s}</span>
                                         <span class="usage-count-value">${l}</span>
                                       </span>
                                     </uui-tag>
@@ -445,7 +445,9 @@ o(c, "properties", {
       --uui-tag-border-radius: 999px;
       --uui-tag-padding: var(--uui-size-space-1) var(--uui-size-space-2);
       box-sizing: border-box;
-      width: 5rem;
+      width: max-content;
+      min-width: 5rem;
+      max-width: 100%;
     }
 
     .usage-count-tag-content {
@@ -453,14 +455,18 @@ o(c, "properties", {
       align-items: center;
       justify-content: space-between;
       gap: var(--uui-size-space-2);
+      min-width: 0;
       width: 100%;
       white-space: nowrap;
       line-height: 1;
     }
 
     .usage-count-culture {
+      min-width: 0;
+      overflow: hidden;
       color: var(--uui-color-text-alt);
       font-weight: 700;
+      text-overflow: ellipsis;
     }
 
     .usage-count-value {
