@@ -1,13 +1,19 @@
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
 
 export default defineConfig({
+  root: __dirname,
   build: {
     lib: {
-      entry: "src/element-finder-dashboard.ts",
+      entry: {
+        "element-finder-dashboard.element": resolve(__dirname, "src/element-finder-dashboard.ts"),
+        "content-cleaner-dashboard.element": resolve(__dirname, "src/content-cleaner-dashboard.ts"),
+        "content-cleaner-usage-workspace.element": resolve(__dirname, "src/content-cleaner-usage-workspace.ts"),
+      },
       formats: ["es"],
-      fileName: "element-finder-dashboard.element",
+      fileName: (_format, entryName) => `${entryName}.js`,
     },
-    outDir: "../wwwroot/App_Plugins/ElementFinder",
+    outDir: resolve(__dirname, "../wwwroot/App_Plugins/ElementFinder"),
     emptyOutDir: true,
     sourcemap: false,
     rollupOptions: {
@@ -18,5 +24,5 @@ export default defineConfig({
     },
   },
   base: "/App_Plugins/ElementFinder/",
-  publicDir: "public",
+  publicDir: resolve(__dirname, "public"),
 });

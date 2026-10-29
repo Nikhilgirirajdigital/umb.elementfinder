@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Umb.ElementFinder.Services;
 using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Web.Common.Authorization;
 
 namespace Umb.ElementFinder.Controllers;
@@ -20,10 +21,17 @@ namespace Umb.ElementFinder.Controllers;
 public sealed class ElementFinderApiController : ControllerBase
 {
     private readonly IElementFinderQueryService _query;
+    private readonly IContentService _contentService;
+    private readonly IContentTypeService _contentTypeService;
 
-    public ElementFinderApiController(IElementFinderQueryService query)
+    public ElementFinderApiController(
+        IElementFinderQueryService query,
+        IContentService contentService,
+        IContentTypeService contentTypeService)
     {
         _query = query;
+        _contentService = contentService;
+        _contentTypeService = contentTypeService;
     }
 
     [HttpGet]
@@ -42,4 +50,42 @@ public sealed class ElementFinderApiController : ControllerBase
         string? search = null,
         CancellationToken ct = default)
         => Ok(await _query.GetPagesForElementTypeAsync(elementTypeAlias, page, pageSize, search, ct));
+
+    /// <summary>
+    /// Returns the property aliases on a content node whose values contain the given
+    /// Element Type. Used by the dashboard to scroll to the correct property when a
+    /// content workspace slide-out is opened from the "Go to Page" button.
+    /// </summary>
+    [HttpGet]
+    public ActionResult<IReadOnlyList<string>> PropertyAliasesForElement(
+        Guid contentKey,
+        string elementTypeAlias)
+    {
+        var content = _contentService.GetById(contentKey);
+        if (content is null)
+            return NotFound(new { message = $"Content with key '{contentKey}' was not found." });
+
+        var elementType = _contentTypeService.Get(elementTypeAlias);
+        if (elementType is null || !elementType.IsElement)
+            return Ok(Array.Empty<string>());
+
+        var targetKey = elementType.Key;
+        var matchingAliases = new List<string>();
+
+        foreach (var property in content.Properties)
+        {
+            var hasMatch = property.Values.Any(value =>
+            {
+                var usages = ElementUsageExtractor.FromValues(
+                    value.EditedValue?.ToString(),
+                    value.PublishedValue?.ToString());
+                return usages.ContainsKey(targetKey);
+            });
+
+            if (hasMatch)
+                matchingAliases.Add(property.Alias);
+        }
+
+        return Ok(matchingAliases);
+    }
 }

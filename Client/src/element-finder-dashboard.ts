@@ -1,8 +1,11 @@
 import { LitElement, css, html } from "@umbraco-cms/backoffice/external/lit";
 import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
+import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { UmbModalRouteRegistrationController } from "@umbraco-cms/backoffice/router";
 import { UMB_WORKSPACE_MODAL } from "@umbraco-cms/backoffice/workspace";
 import { UMB_DOCUMENT_ENTITY_TYPE, UMB_EDIT_DOCUMENT_WORKSPACE_PATH_PATTERN } from "@umbraco-cms/backoffice/document";
+import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
+import type { UmbAuthContext } from "@umbraco-cms/backoffice/auth";
 
 const API_BASE = "/umbraco/backoffice/elementfinder";
 const PAGE_SIZE = 20;
@@ -59,6 +62,10 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
   declare _pageRequestId: number;
   declare _workspaceModalRoute: UmbModalRouteRegistrationController;
   declare _workspaceModalPathBuilder?: WorkspaceModalPathBuilder;
+  private _authContext?: UmbAuthContext;
+  private _scrollCleanup?: () => void;
+  private _highlightCleanup?: () => void;
+  private _activeGoToPageItem?: PageItem;
 
   static properties = {
     _view: { state: true },
@@ -96,13 +103,22 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
     this._elementTypeRequestId = 0;
     this._pageRequestId = 0;
 
+    this.consumeContext(UMB_AUTH_CONTEXT, (context) => {
+      this._authContext = context ?? undefined;
+    });
+
     this._workspaceModalRoute = new UmbModalRouteRegistrationController(this, UMB_WORKSPACE_MODAL)
-      .onSetup(async () => ({
-        data: {
-          entityType: UMB_DOCUMENT_ENTITY_TYPE,
-          preset: {},
-        },
-      }))
+      .onSetup(async () => {
+        if (this._activeGoToPageItem) {
+          this._startScrollWatcher(this._activeGoToPageItem);
+        }
+        return {
+          data: {
+            entityType: UMB_DOCUMENT_ENTITY_TYPE,
+            preset: {},
+          },
+        };
+      })
       .onSubmit(() => {})
       .onReject(() => {})
       .observeRouteBuilder((routeBuilder: WorkspaceModalPathBuilder) => {
@@ -111,22 +127,62 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
   }
 
   disconnectedCallback() {
+    this._scrollCleanup?.();
+    this._scrollCleanup = undefined;
+    this._highlightCleanup?.();
+    this._highlightCleanup = undefined;
     this._workspaceModalRoute?.destroy();
     super.disconnectedCallback();
   }
 
-  static styles = css`
-    :host {
-      display: block;
-      box-sizing: border-box;
-      padding: var(--uui-size-layout-1);
-    }
+  static styles = [
+    UmbTextStyles,
+    css`
+      :host {
+        display: block;
+        box-sizing: border-box;
+        padding: var(--uui-size-layout-1);
+        color: var(--uui-color-text);
+        font-family: var(--uui-font-family, Lato, "Helvetica Neue", Helvetica, Arial, sans-serif);
+        font-size: var(--uui-type-default-size, 14px);
+      }
 
-    .element-finder-title,
-    .detail-breadcrumbs,
-    .detail-breadcrumbs uui-breadcrumb-item {
-      font-size: 14px !important;
-    }
+      uui-button {
+        font-size: var(--uui-type-default-size, 14px);
+        --uui-button-font-size: var(--uui-type-default-size, 14px);
+        font-family: inherit;
+      }
+
+      uui-table-head {
+        font-weight: 600 !important;
+        color: var(--uui-color-text) !important;
+        background-color: var(--uui-color-surface);
+        border-bottom: 1px solid var(--uui-color-border);
+      }
+
+      uui-table-head-cell {
+        --uui-table-cell-padding: 10px 20px;
+        font-weight: 600 !important;
+        font-size: var(--uui-type-default-size, 14px) !important;
+        color: var(--uui-color-text) !important;
+        box-sizing: border-box;
+        border-bottom: 1px solid var(--uui-color-border);
+      }
+
+      uui-table-head-cell,
+      uui-table-head-cell span {
+        font-family: var(--uui-font-family, Lato, "Helvetica Neue", Helvetica, Arial, sans-serif) !important;
+        font-size: var(--uui-type-default-size, 14px) !important;
+        font-weight: 600 !important;
+        color: var(--uui-color-text) !important;
+        line-height: inherit;
+      }
+
+      .element-finder-title,
+      .detail-breadcrumbs,
+      .detail-breadcrumbs uui-breadcrumb-item {
+        font-size: 14px !important;
+      }
 
     .breadcrumb-back-icon {
       vertical-align: middle;
@@ -259,7 +315,7 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
     }
 
     .pagination-wrapper uui-pagination {
-      display: block;
+      display: inline-flex;
       width: 100%;
     }
 
@@ -285,7 +341,8 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
         max-width: none;
       }
     }
-  `;
+  `,
+  ];
 
   connectedCallback() {
     super.connectedCallback();
@@ -395,6 +452,633 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
     return `${modalBase}${editPath}`;
   }
 
+  _onGoToPage(page: PageItem): void {
+    this._startScrollWatcher(page);
+  }
+
+  _startScrollWatcher(page: PageItem): void {
+    this._activeGoToPageItem = page;
+    const selected = this._selectedElementType;
+    const elementTypeName = selected?.name ?? "";
+    const elementTypeAlias = selected?.alias ?? "";
+    const contentKey = page.key;
+
+    console.log(`[ElementFinder] Starting scroll watcher for page: "${page.name}" (${contentKey}), element: "${elementTypeName}" (${elementTypeAlias})`);
+
+    // Clean up any ongoing scroll watcher
+    this._scrollCleanup?.();
+    let cancelled = false;
+    this._scrollCleanup = () => {
+      cancelled = true;
+    };
+
+    let propertyAliases: string[] = [];
+
+    // Fetch property aliases from backend in parallel
+    void (async () => {
+      try {
+        const token = await this._authContext?.getLatestToken();
+        const headers: Record<string, string> = { Accept: "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch(
+          `${API_BASE}/propertyaliasesforelement?contentKey=${contentKey}&elementTypeAlias=${encodeURIComponent(elementTypeAlias)}`,
+          { headers, credentials: "include" }
+        );
+        if (res.ok) {
+          propertyAliases = ((await res.json()) as string[]) ?? [];
+          console.log(`[ElementFinder] Matching property aliases for element:`, propertyAliases);
+        }
+      } catch (err) {
+        console.warn(`[ElementFinder] Could not fetch property aliases:`, err);
+      }
+    })();
+
+    const startTime = Date.now();
+    const maxWaitMs = 20000;
+    const intervalMs = 100;
+    let scrolledOnce = false;
+
+    const poll = () => {
+      if (cancelled) return;
+
+      if (Date.now() - startTime > maxWaitMs) {
+        console.warn(`[ElementFinder] Scroll watcher timed out after ${maxWaitMs}ms.`);
+        return;
+      }
+
+      // 1. Look for the open workspace modal
+      const workspaceModal = this._findOpenWorkspaceModal();
+      if (!workspaceModal) {
+        // Modal not yet mounted, keep waiting
+        setTimeout(poll, intervalMs);
+        return;
+      }
+
+      // 2. Only allow fallback to raw <umb-property> container after waiting 2.5s for block items to render
+      const allowPropertyFallback = Date.now() - startTime > 2500;
+
+      // 3. Look for the target element inside the open workspace modal
+      const result = this._findTargetInWorkspace(
+        workspaceModal,
+        elementTypeName,
+        elementTypeAlias,
+        propertyAliases,
+        allowPropertyFallback
+      );
+
+      if (result) {
+        const { target, isExact } = result;
+
+        if (target && target.getBoundingClientRect().height > 0) {
+          if (isExact) {
+            console.log(`[ElementFinder] Found exact target element in workspace:`, target);
+            this._scrollAndHighlight(target, workspaceModal);
+            return;
+          } else if (!scrolledOnce) {
+            console.log(`[ElementFinder] Scrolled towards property container, awaiting block items:`, target);
+            scrolledOnce = true;
+            this._scrollToTarget(target, workspaceModal);
+          }
+        }
+      }
+
+      setTimeout(poll, intervalMs);
+    };
+
+    // Start polling immediately
+    setTimeout(poll, 50);
+  }
+
+  _findOpenWorkspaceModal(): HTMLElement | null {
+    const allModals = this._queryDeepAll((el) => {
+      if (this._isInsideDashboard(el)) return false;
+      const tag = el.tagName.toLowerCase();
+      return (
+        tag === "uui-modal-sidebar" ||
+        tag === "umb-workspace-modal" ||
+        tag === "umb-document-workspace-editor" ||
+        tag === "umb-workspace-editor" ||
+        tag === "uui-modal-dialog" ||
+        tag === "umb-modal"
+      );
+    }, document);
+
+    if (allModals.length > 0) {
+      const topModal =
+        allModals.find((el) => {
+          const tag = el.tagName.toLowerCase();
+          return tag === "uui-modal-sidebar" || tag === "umb-workspace-modal";
+        }) ?? allModals[0];
+      return topModal;
+    }
+
+    return null;
+  }
+
+  _getDeepText(node: Node | null | undefined): string {
+    if (!node) return "";
+    const target = node instanceof Element && node.shadowRoot ? node.shadowRoot : node;
+    const parts: string[] = [];
+    for (let i = 0; i < target.childNodes.length; i++) {
+      const child = target.childNodes[i];
+      if (child.nodeType === Node.TEXT_NODE) {
+        const t = child.textContent?.trim();
+        if (t) parts.push(t);
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        parts.push(this._getDeepText(child));
+      }
+    }
+    return parts.filter(Boolean).join(" ");
+  }
+
+  _findTargetInWorkspace(
+    workspaceModal: HTMLElement,
+    elementTypeName: string,
+    elementTypeAlias: string,
+    propertyAliases: string[],
+    allowPropertyFallback: boolean = false
+  ): { target: HTMLElement; isExact: boolean } | null {
+    const normName = elementTypeName.trim().toLowerCase();
+    const normAlias = elementTypeAlias.trim().toLowerCase();
+
+    // Query all elements inside the workspace modal (piercing all shadow roots)
+    const elements = this._queryDeepAll((el) => {
+      return !this._isInsideDashboard(el);
+    }, workspaceModal);
+
+    // Strategy 1: Check block elements directly for content type alias or name
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      const tag = el.tagName.toLowerCase();
+
+      // Skip editor containers - we want individual block items
+      if (
+        tag === "umb-block-list-property-editor-ui" ||
+        tag === "umb-block-grid-property-editor-ui" ||
+        tag === "umb-block-editor-custom-view"
+      ) {
+        continue;
+      }
+
+      const isBlock =
+        tag === "umb-block-list-entry" ||
+        tag === "umb-block-grid-entry" ||
+        tag === "umb-ref-list-block" ||
+        tag === "uui-ref-node" ||
+        tag.includes("entry") ||
+        tag.includes("card") ||
+        el.classList.contains("umb-block");
+
+      if (isBlock) {
+        const cAlias = (
+          (el as unknown as { _contentTypeAlias?: string })._contentTypeAlias ||
+          (el as unknown as { contentTypeAlias?: string }).contentTypeAlias ||
+          el.getAttribute("data-content-type-alias") ||
+          el.getAttribute("data-element-type") ||
+          ""
+        ).toString().trim().toLowerCase();
+
+        const cName = (
+          (el as unknown as { _contentTypeName?: string })._contentTypeName ||
+          (el as unknown as { contentTypeName?: string }).contentTypeName ||
+          ""
+        ).toString().trim().toLowerCase();
+
+        if ((normAlias && cAlias === normAlias) || (normName && cName === normName)) {
+          return { target: this._getEnclosingCard(el), isExact: true };
+        }
+
+        const deepText = this._getDeepText(el).toLowerCase();
+        if (
+          (Boolean(normName) && (deepText === normName || deepText.startsWith(normName) || deepText.includes(normName))) ||
+          (Boolean(normAlias) && (deepText === normAlias || deepText.startsWith(normAlias) || deepText.includes(normAlias)))
+        ) {
+          if (deepText.length < 300) {
+            return { target: this._getEnclosingCard(el), isExact: true };
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Exact text match on any text / label elements piercing shadow roots
+    if (normName || normAlias) {
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        const tag = el.tagName.toLowerCase();
+        if (
+          tag === "uui-scroll-container" ||
+          tag === "umb-body-layout" ||
+          tag === "umb-workspace-editor" ||
+          tag === "uui-modal-sidebar" ||
+          tag === "umb-workspace-modal" ||
+          tag.includes("property-editor")
+        ) {
+          continue;
+        }
+
+        const directText = (el.textContent ?? "").trim().toLowerCase();
+        if (directText === normName || directText === normAlias) {
+          return { target: this._getEnclosingCard(el), isExact: true };
+        }
+
+        if (tag.includes("-") || ["span", "div", "strong", "b", "p", "h1", "h2", "h3", "h4", "h5", "uui-tag"].includes(tag)) {
+          const deepText = this._getDeepText(el).toLowerCase();
+          if (deepText === normName || deepText === normAlias) {
+            return { target: this._getEnclosingCard(el), isExact: true };
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Check property aliases from backend
+    if (propertyAliases && propertyAliases.length > 0) {
+      for (let a = 0; a < propertyAliases.length; a++) {
+        const normProp = propertyAliases[a].trim().toLowerCase();
+        for (let i = 0; i < elements.length; i++) {
+          const el = elements[i];
+          const tag = el.tagName.toLowerCase();
+          if (tag.includes("property")) {
+            const alias = (
+              el.getAttribute("alias") ??
+              (el as unknown as { alias?: string }).alias ??
+              el.getAttribute("data-alias") ??
+              ""
+            ).trim().toLowerCase();
+
+            if (alias === normProp) {
+              const childBlocks = this._queryDeepAll((c) => {
+                const cTag = c.tagName.toLowerCase();
+                return (
+                  cTag === "umb-block-list-entry" ||
+                  cTag === "umb-block-grid-entry" ||
+                  cTag === "umb-ref-list-block" ||
+                  cTag === "uui-ref-node" ||
+                  cTag.includes("entry") ||
+                  cTag.includes("card")
+                );
+              }, el);
+
+              for (let c = 0; c < childBlocks.length; c++) {
+                const b = childBlocks[c];
+                const cAlias = (
+                  (b as unknown as { _contentTypeAlias?: string })._contentTypeAlias ||
+                  (b as unknown as { contentTypeAlias?: string }).contentTypeAlias ||
+                  ""
+                ).toString().trim().toLowerCase();
+                const cName = (
+                  (b as unknown as { _contentTypeName?: string })._contentTypeName ||
+                  (b as unknown as { contentTypeName?: string }).contentTypeName ||
+                  ""
+                ).toString().trim().toLowerCase();
+                const blockText = this._getDeepText(b).toLowerCase();
+
+                if (
+                  (normAlias && cAlias === normAlias) ||
+                  (normName && cName === normName) ||
+                  (normName && blockText.includes(normName)) ||
+                  (normAlias && blockText.includes(normAlias))
+                ) {
+                  return { target: this._getEnclosingCard(b), isExact: true };
+                }
+              }
+
+              // Only fall back to returning the property element if allowed (after 2.5s wait)
+              if (allowPropertyFallback) {
+                return { target: el, isExact: false };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 4: Substring match inside block items
+    if (normName || normAlias) {
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        const tag = el.tagName.toLowerCase();
+        if (
+          tag === "umb-block-list-entry" ||
+          tag === "umb-block-grid-entry" ||
+          tag === "umb-ref-list-block" ||
+          tag === "uui-ref-node" ||
+          tag.includes("entry") ||
+          tag.includes("card")
+        ) {
+          const deepText = this._getDeepText(el).toLowerCase();
+          if ((normName && deepText.includes(normName)) || (normAlias && deepText.includes(normAlias))) {
+            if (deepText.length < 500) {
+              return { target: this._getEnclosingCard(el), isExact: true };
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  _getEnclosingCard(el: HTMLElement): HTMLElement {
+    let curr: HTMLElement = el;
+    let bestCandidate: HTMLElement = el;
+    let depth = 0;
+
+    while (curr && depth < 20) {
+      const tag = curr.tagName.toLowerCase();
+      if (
+        tag === "umb-block-list-entry" ||
+        tag === "umb-block-grid-entry" ||
+        tag === "umb-ref-list-block" ||
+        tag === "uui-ref-node" ||
+        tag.includes("card") ||
+        curr.classList.contains("umb-block")
+      ) {
+        bestCandidate = curr;
+        if (tag === "umb-block-list-entry" || tag === "umb-block-grid-entry") {
+          return curr;
+        }
+      }
+
+      if (
+        tag === "uui-scroll-container" ||
+        tag === "umb-body-layout" ||
+        tag === "umb-workspace-editor" ||
+        tag === "umb-workspace-modal" ||
+        tag === "uui-modal-sidebar"
+      ) {
+        break;
+      }
+
+      let parent: Node | null = curr.parentElement;
+      if (!parent && curr.parentNode instanceof ShadowRoot) {
+        parent = curr.parentNode.host;
+      }
+
+      if (!parent || !(parent instanceof HTMLElement)) break;
+      curr = parent;
+      depth++;
+    }
+
+    return bestCandidate;
+  }
+
+  _isInsideDashboard(node: Node): boolean {
+    let curr: Node | null = node;
+    while (curr && curr !== document && curr !== document.body) {
+      if (curr === this) return true;
+      if (curr instanceof HTMLElement && curr.tagName.toLowerCase() === "element-finder-dashboard") return true;
+      if (curr instanceof ShadowRoot) {
+        curr = curr.host;
+      } else {
+        curr = curr.parentNode;
+      }
+    }
+    return false;
+  }
+
+  _scrollAndHighlight(target: HTMLElement, workspaceModal?: HTMLElement): void {
+    // 1. Scroll the container smoothly to the target
+    this._scrollToTarget(target, workspaceModal);
+
+    // 2. Identify elements to highlight: target and any inner card / ref-node
+    const elementsToHighlight: HTMLElement[] = [target];
+    const innerCards = this._queryDeepAll((c) => {
+      const cTag = c.tagName.toLowerCase();
+      return (
+        cTag === "uui-ref-node" ||
+        cTag === "umb-ref-list-block" ||
+        cTag.includes("card") ||
+        c.classList.contains("umb-block-list__block")
+      );
+    }, target);
+
+    for (let k = 0; k < innerCards.length; k++) {
+      if (!elementsToHighlight.includes(innerCards[k])) {
+        elementsToHighlight.push(innerCards[k]);
+      }
+    }
+
+    // Cancel any ongoing highlight cleanup
+    this._highlightCleanup?.();
+
+    const applyHighlight = (el: HTMLElement) => {
+      if (el.dataset.efHighlighted === undefined) {
+        el.dataset.efHighlighted = "true";
+        el.dataset.efOrigOutline = el.style.outline || "";
+        el.dataset.efOrigOffset = el.style.outlineOffset || "";
+        el.dataset.efOrigShadow = el.style.boxShadow || "";
+        el.dataset.efOrigTransition = el.style.transition || "";
+        el.dataset.efOrigRadius = el.style.borderRadius || "";
+        el.dataset.efOrigZIndex = el.style.zIndex || "";
+      }
+
+      el.style.setProperty("transition", "outline 0.3s ease, box-shadow 0.3s ease", "important");
+      el.style.setProperty("outline", "1px solid var(--uui-color-interactive, #1b264f)", "important");
+      el.style.setProperty("outline-offset", "2px", "important");
+      el.style.setProperty("box-shadow", "0 0 0 2px var(--uui-color-interactive, #1b264f), 0 0 24px rgba(27, 38, 79, 0.6)", "important");
+      el.style.setProperty("z-index", "10", "important");
+      if (!el.style.borderRadius && el.dataset.efOrigRadius === "") {
+        el.style.setProperty("border-radius", "6px", "important");
+      }
+    };
+
+    const removeHighlight = (el: HTMLElement) => {
+      if (el.dataset.efHighlighted !== undefined) {
+        el.style.setProperty("outline", "3px solid transparent", "important");
+        el.style.setProperty("box-shadow", "none", "important");
+        setTimeout(() => {
+          el.style.removeProperty("outline");
+          el.style.removeProperty("outline-offset");
+          el.style.removeProperty("box-shadow");
+          el.style.removeProperty("transition");
+          el.style.removeProperty("border-radius");
+          el.style.removeProperty("z-index");
+
+          if (el.dataset.efOrigOutline) el.style.outline = el.dataset.efOrigOutline;
+          if (el.dataset.efOrigOffset) el.style.outlineOffset = el.dataset.efOrigOffset;
+          if (el.dataset.efOrigShadow) el.style.boxShadow = el.dataset.efOrigShadow;
+          if (el.dataset.efOrigTransition) el.style.transition = el.dataset.efOrigTransition;
+          if (el.dataset.efOrigRadius) el.style.borderRadius = el.dataset.efOrigRadius;
+          if (el.dataset.efOrigZIndex) el.style.zIndex = el.dataset.efOrigZIndex;
+
+          delete el.dataset.efHighlighted;
+          delete el.dataset.efOrigOutline;
+          delete el.dataset.efOrigOffset;
+          delete el.dataset.efOrigShadow;
+          delete el.dataset.efOrigTransition;
+          delete el.dataset.efOrigRadius;
+          delete el.dataset.efOrigZIndex;
+        }, 400);
+      }
+    };
+
+    const applyAll = () => {
+      for (let i = 0; i < elementsToHighlight.length; i++) {
+        applyHighlight(elementsToHighlight[i]);
+      }
+    };
+
+    // Apply highlight immediately and at staggered intervals to survive async re-renders
+    applyAll();
+    const t1 = setTimeout(applyAll, 100);
+    const t2 = setTimeout(applyAll, 250);
+    const t3 = setTimeout(applyAll, 500);
+    const t4 = setTimeout(applyAll, 800);
+    const t5 = setTimeout(applyAll, 1200);
+
+    // Schedule cleanup after 4.5 seconds
+    const tCleanup = setTimeout(() => {
+      for (let i = 0; i < elementsToHighlight.length; i++) {
+        removeHighlight(elementsToHighlight[i]);
+      }
+    }, 4500);
+
+    this._highlightCleanup = () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+      clearTimeout(tCleanup);
+      for (let i = 0; i < elementsToHighlight.length; i++) {
+        removeHighlight(elementsToHighlight[i]);
+      }
+    };
+  }
+
+  _scrollToTarget(target: HTMLElement, workspaceModal?: HTMLElement): void {
+    const doScroll = () => {
+      // 1. Native smooth scrollIntoView
+      try {
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      } catch {
+        target.scrollIntoView();
+      }
+
+      // 2. Find all scrollable containers in the modal and along the ancestor chain
+      const scrollContainers: HTMLElement[] = [];
+
+      let curr: Node | null = target;
+      while (curr && curr !== document && curr !== document.body && curr !== document.documentElement) {
+        if (curr instanceof HTMLElement) {
+          const tag = curr.tagName.toLowerCase();
+          const style = window.getComputedStyle(curr);
+          const overflowY = style.overflowY;
+          const isScrollable =
+            (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+            curr.scrollHeight > curr.clientHeight;
+
+          if (isScrollable || tag === "uui-scroll-container") {
+            if (!scrollContainers.includes(curr)) {
+              scrollContainers.push(curr);
+            }
+          }
+        }
+
+        if (curr instanceof ShadowRoot) {
+          curr = curr.host;
+        } else {
+          curr = curr.parentNode;
+        }
+      }
+
+      if (workspaceModal) {
+        const modalScrollables = this._queryDeepAll((el) => {
+          const tag = el.tagName.toLowerCase();
+          if (tag === "uui-scroll-container") return true;
+          const style = window.getComputedStyle(el);
+          return (
+            (style.overflowY === "auto" || style.overflowY === "scroll" || style.overflowY === "overlay") &&
+            el.scrollHeight > el.clientHeight
+          );
+        }, workspaceModal);
+
+        for (let i = 0; i < modalScrollables.length; i++) {
+          if (!scrollContainers.includes(modalScrollables[i])) {
+            scrollContainers.push(modalScrollables[i]);
+          }
+        }
+      }
+
+      for (let i = 0; i < scrollContainers.length; i++) {
+        const container = scrollContainers[i];
+        const targetRect = target.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const offsetDiff = targetRect.top - containerRect.top;
+        const targetScrollTop =
+          container.scrollTop + offsetDiff - container.clientHeight / 2 + targetRect.height / 2;
+
+        const clampedScrollTop = Math.max(0, targetScrollTop);
+
+        try {
+          container.scrollTo({
+            top: clampedScrollTop,
+            behavior: "smooth",
+          });
+        } catch {
+          container.scrollTop = clampedScrollTop;
+        }
+      }
+    };
+
+    // Scroll immediately and at staggered intervals to account for animation & layout stabilization
+    doScroll();
+    setTimeout(doScroll, 100);
+    setTimeout(doScroll, 250);
+    setTimeout(doScroll, 500);
+    setTimeout(doScroll, 800);
+    setTimeout(doScroll, 1200);
+    setTimeout(doScroll, 1800);
+  }
+
+
+  _queryDeepAll(
+    predicate: (el: HTMLElement) => boolean,
+    root: Node = document
+  ): HTMLElement[] {
+    const results: HTMLElement[] = [];
+    const queue: (Element | Document | ShadowRoot)[] = [
+      root as (Element | Document | ShadowRoot),
+    ];
+    const visited = new Set<Node>();
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      try {
+        if (current instanceof HTMLElement && predicate(current)) {
+          results.push(current);
+        }
+      } catch {}
+
+      let elements: Element[] = [];
+      try {
+        if ("querySelectorAll" in current) {
+          elements = Array.from(current.querySelectorAll("*"));
+        }
+      } catch {}
+
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        if (el instanceof HTMLElement && predicate(el)) {
+          results.push(el);
+        }
+        if (el.shadowRoot && !visited.has(el.shadowRoot)) {
+          queue.push(el.shadowRoot);
+        }
+      }
+    }
+
+    return results;
+  }
+
   _submitElementTypeSearch(): void {
     this._elementTypeFilter = this._elementTypeSearchText.trim();
     this._elementTypePage = 1;
@@ -495,7 +1179,7 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
             label="Search"
             look="primary"
             @click=${this._submitElementTypeSearch}
-          ></uui-button>
+          >Search</uui-button>
         </div>
 
         ${this._loading
@@ -505,10 +1189,10 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
                 ? html`
                     <uui-table>
                       <uui-table-head>
-                        <uui-table-head-cell>Name</uui-table-head-cell>
-                        <uui-table-head-cell>Alias</uui-table-head-cell>
-                        <uui-table-head-cell>Total Usage Count</uui-table-head-cell>
-                        <uui-table-head-cell>Action</uui-table-head-cell>
+                        <uui-table-head-cell><span>Name</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Alias</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Total Usage Count</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Action</span></uui-table-head-cell>
                       </uui-table-head>
 
                       ${this._elementTypes.map(
@@ -529,7 +1213,7 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
                                 label="View Usage"
                                 look="primary"
                                 @click=${() => this._openElementType(elementType)}
-                              ></uui-button>
+                              >View Usage</uui-button>
                             </uui-table-cell>
                           </uui-table-row>
                         `
@@ -600,7 +1284,7 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
               label="Search"
               look="primary"
               @click=${this._submitPageSearch}
-            ></uui-button>
+            >Search</uui-button>
           </div>
         </div>
 
@@ -611,10 +1295,10 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
                 ? html`
                     <uui-table>
                       <uui-table-head>
-                        <uui-table-head-cell>Name</uui-table-head-cell>
-                        <uui-table-head-cell>Status</uui-table-head-cell>
-                        <uui-table-head-cell>Usage Count</uui-table-head-cell>
-                        <uui-table-head-cell>Action</uui-table-head-cell>
+                        <uui-table-head-cell><span>Name</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Status</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Usage Count</span></uui-table-head-cell>
+                        <uui-table-head-cell><span>Action</span></uui-table-head-cell>
                       </uui-table-head>
 
                       ${this._pages.map(
@@ -650,12 +1334,18 @@ class ElementFinderDashboardElement extends UmbElementMixin(LitElement) {
                                 label="Go to Page"
                                 look="primary"
                                 .href=${this._getPageWorkspaceHref(p)}
+                                @pointerdown=${() => {
+                                  this._activeGoToPageItem = p;
+                                }}
                                 @click=${(event: Event) => {
                                   if (!this._getPageWorkspaceHref(p)) {
                                     event.preventDefault();
+                                    return;
                                   }
+                                  this._activeGoToPageItem = p;
+                                  this._onGoToPage(p);
                                 }}
-                              ></uui-button>
+                              >Go to Page</uui-button>
                             </uui-table-cell>
                           </uui-table-row>
                         `

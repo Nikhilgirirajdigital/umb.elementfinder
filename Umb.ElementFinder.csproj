@@ -8,7 +8,7 @@
 
     <PropertyGroup Label="Package identity">
         <PackageId>Umb.ElementFinder</PackageId>
-        <Version>17.1.0</Version>
+        <Version>17.2.0</Version>
         <Title>Element Finder</Title>
         <Authors>Giriraj Digital</Authors>
         <Description>Find and track where Umbraco Element Types are used across your content pages, with a clear dashboard view of their usage and references.</Description>
