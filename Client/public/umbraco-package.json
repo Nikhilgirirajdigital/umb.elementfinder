@@ -1,7 +1,7 @@
 {
     "$schema": "../../umbraco-package-schema.json",
     "name": "Element Finder",
-    "version": "17.1.0",
+    "version": "17.2.0",
     "extensions": [
         {
             "type": "dashboard",
@@ -20,6 +20,57 @@
                     "match": "Umb.Section.Content"
                 }
             ]
+        },
+        {
+            "type": "menuItem",
+            "alias": "Umb.ContentCleaner.MenuItem",
+            "name": "Content Cleaner Menu Item",
+            "weight": -10000,
+            "meta": {
+                "label": "Content Cleaner",
+                "icon": "icon-search",
+                "entityType": "content-cleaner-root",
+                "menus": [
+                    "Umb.Menu.AdvancedSettings"
+                ]
+            }
+        },
+        {
+            "type": "workspace",
+            "kind": "default",
+            "alias": "Umb.ContentCleaner.Workspace",
+            "name": "Content Cleaner Workspace",
+            "meta": {
+                "entityType": "content-cleaner-root",
+                "headline": "Content Cleaner"
+            }
+        },
+        {
+            "type": "workspaceView",
+            "alias": "Umb.ContentCleaner.WorkspaceView",
+            "name": "Content Cleaner Workspace View",
+            "element": "/App_Plugins/ElementFinder/content-cleaner-dashboard.element.js",
+            "weight": 100,
+            "meta": {
+                "label": "Overview",
+                "pathname": "overview",
+                "icon": "icon-search"
+            },
+            "conditions": [
+                {
+                    "alias": "Umb.Condition.WorkspaceAlias",
+                    "match": "Umb.ContentCleaner.Workspace"
+                }
+            ]
+        },
+        {
+            "type": "workspace",
+            "alias": "Umb.ContentCleaner.UsageWorkspace",
+            "name": "Content Cleaner Usage Workspace",
+            "element": "/App_Plugins/ElementFinder/content-cleaner-usage-workspace.element.js",
+            "meta": {
+                "entityType": "content-cleaner-usage"
+            }
         }
     ]
 }
