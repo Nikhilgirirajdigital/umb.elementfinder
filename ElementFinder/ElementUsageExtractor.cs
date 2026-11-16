@@ -5,7 +5,11 @@ namespace Umb.ElementFinder.Services;
 
 internal static partial class ElementUsageExtractor
 {
-    [GeneratedRegex("\\\"contentTypeKey\\\"\\s*:\\s*\\\"(?<key>[0-9a-fA-F-]{36})\\\"", RegexOptions.CultureInvariant)]
+    // A JSON quote, either plain or as the u0022 unicode escape that nested block JSON uses, behind
+    // as many escaping backslashes as the block nesting depth adds.
+    private const string Quote = @"(?:\\*""|\\+u0022)";
+
+    [GeneratedRegex(Quote + "contentTypeKey" + Quote + @"\s*:\s*" + Quote + "(?<key>[0-9a-fA-F-]{36})" + Quote, RegexOptions.CultureInvariant)]
     private static partial Regex ContentTypeKeyRegex();
 
     public static Dictionary<Guid, int> FromContent(IContent content)

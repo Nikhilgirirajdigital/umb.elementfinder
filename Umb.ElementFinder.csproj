@@ -65,6 +65,10 @@ Removes the custom database tables. No migration is required, and the startup cr
         <None Remove="Tests\**" />
     </ItemGroup>
 
+    <ItemGroup Label="Lets the tests reach the internal usage extractor">
+        <InternalsVisibleTo Include="Umb.ElementFinder.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Umbraco.Cms" Version="[17.0.0,19.0.0)" />
     </ItemGroup>
